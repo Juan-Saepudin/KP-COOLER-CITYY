@@ -1,0 +1,12 @@
+# Antigravity IDE & MCP config
+antigravity/
+
+# Environment and sensitive files
+*.env
+*.key
+
+# Windows shortcuts & OS metadata
+*.lnk
+Thumbs.db
+Desktop.ini
+.DS_Store

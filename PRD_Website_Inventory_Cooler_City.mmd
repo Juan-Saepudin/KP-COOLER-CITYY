@@ -1,0 +1,273 @@
+---
+title: "PRD Website Inventory Cooler City"
+version: "1.0-draft"
+date: "2026-10-28"
+---
+
+# PRD Website Inventory Cooler City
+
+> Dokumen kebutuhan produk dalam bentuk Mermaid yang dapat diedit.  
+> File `.mmd` ini berisi diagram mindmap, alur kerja, dan ERD. Mermaid cocok untuk memvisualisasikan struktur dan hubungan kebutuhan; untuk dokumentasi naratif yang panjang, gunakan file Markdown terpisah jika dibutuhkan.
+
+## 1. Mindmap PRD
+
+```mermaid
+mindmap
+  root((PRD Website Inventory Cooler City))
+    Informasi Proyek
+      Nama produk: Website Inventory Cooler City
+      Perusahaan: Cooler City
+      Tujuan: Mempermudah pengelolaan data barang
+      Platform: Website
+      Database: SQL
+      Hosting: Gratis, dengan evaluasi batas layanan
+    Latar Belakang
+      Pencatatan barang masuk dan keluar menggunakan buku
+      Data dipindahkan ke Excel
+      Laporan dicetak sebagai arsip fisik
+      Proses memakan waktu
+      Risiko kesalahan penulisan dan ketidaksesuaian stok
+      Solusi: sistem web dengan stok dan laporan terintegrasi
+    Pengguna
+      Staf gudang
+      Owner
+      Hak akses staf gudang melihat dan mengedit data serta export, sedangkan owner hanya melihat dan export laporan
+      Akun dibuat terlebih dahulu
+      Tidak ada registrasi mandiri
+    Halaman
+      Login
+        Username dan password
+        Validasi kredensial
+        Pesan kesalahan
+        Session dan logout
+      Dashboard
+        Ringkasan barang masuk
+        Ringkasan barang keluar
+        Total stok di gudang
+        Line chart tren bulanan masuk dan keluar
+        Donut chart distribusi kategori
+        Grouped bar chart Senin sampai Minggu
+        Data berasal dari database
+      Data Bahan Baku
+        Tabel kode nama kategori stok satuan harga status
+        Summary jenis barang
+        Summary barang habis
+        Summary jumlah barang
+        Tambah data
+        Edit data
+        Hapus atau arsip
+        Cari barang
+        Validasi kode unik
+        Stok minimum
+      Bahan Masuk
+        Tabel tanggal kode nama supplier jumlah harga beli total keterangan
+        Transaksi bulan ini
+        Pembelian hari ini
+        Form input bahan masuk
+        Hitung total otomatis
+        Cari dan filter transaksi
+        Stok bertambah setelah transaksi berhasil
+      Bahan Keluar
+        Tabel tanggal kode nama tujuan jumlah keterangan
+        Transaksi bulan ini
+        Penggunaan hari ini
+        Form input bahan keluar
+        Cari dan filter transaksi
+        Tolak jumlah keluar melebihi stok
+        Stok berkurang setelah transaksi berhasil
+      Laporan
+        Filter periode
+        KPI total masuk
+        KPI total keluar
+        KPI nilai pembelian
+        Tab ringkasan
+        Tab bahan dengan pengeluaran tertinggi
+        Tab stok kritis
+        Ekspor PDF
+        Ekspor Excel
+        Data ekspor mengikuti filter
+    Aturan Bisnis
+      Login wajib
+      Akun tidak dibuat melalui registrasi
+      Stok bertambah melalui transaksi masuk
+      Stok berkurang melalui transaksi keluar
+      Stok tidak boleh negatif
+      Batas minimum awal 10 unit
+      Stok nol berstatus Habis
+      Stok positif di bawah atau sama dengan minimum berstatus Menipis
+      Total pembelian = jumlah x harga beli
+      Laporan dihitung dari transaksi sesuai periode
+      Catat pengguna pembuat transaksi
+      Transaksi database harus atomik
+    Database
+      tb_barang
+        id_barang PK
+        kode_barang UNIQUE
+        nama_barang
+        kategori
+        stok
+        satuan
+        harga
+        stok_minimum
+      tb_barangmasuk
+        id_masuk PK
+        tanggal_masuk
+        id_barang FK
+        supplier
+        jumlah
+        harga_beli
+        total
+        keterangan
+        id_user FK
+      tb_barangkeluar
+        id_keluar PK
+        tanggal_keluar
+        id_barang FK
+        tujuan
+        jumlah
+        keterangan
+        id_user FK
+      tb_user
+        id_user PK
+        nama_user
+        username UNIQUE
+        password hash
+        level: gudang atau owner
+      tb_laporan
+        Opsional
+        Hitung dari transaksi jika tidak perlu laporan terkunci
+    Keamanan
+      Password di-hash
+      Validasi input di backend
+      Proteksi SQL injection
+      HTTPS saat produksi
+      Rahasia di environment variables
+      Session aman dan logout
+      Database tidak dibuka ke publik
+      Backup dan pemulihan
+      Audit aktivitas penting
+    Nonfungsional
+      UI mudah digunakan
+      Responsif di laptop tablet dan HP
+      Data konsisten
+      Performa memadai
+      Kompatibilitas browser modern
+      Kode mudah dipelihara
+      Backup berkala
+    Deployment
+      XAMPP untuk pengembangan lokal jika memakai PHP dan MySQL
+      Database produksi di server
+      Hosting harus mendukung backend dan SQL
+      HTTPS
+      Backup dan pemulihan diuji
+      Evaluasi keterbatasan hosting gratis
+    Batasan
+      Tidak termasuk integrasi kasir
+      Tidak termasuk penjualan pelanggan
+      Tidak termasuk multi-gudang
+      Tidak termasuk aplikasi mobile native
+      Notifikasi eksternal di luar cakupan awal
+    Acceptance Criteria
+      Login valid berhasil
+      Password salah ditolak
+      Kode barang duplikat ditolak
+      Barang masuk menambah stok
+      Barang keluar mengurangi stok
+      Barang keluar melebihi stok ditolak
+      Stok kritis ditampilkan dengan benar
+      Filter laporan bekerja
+      PDF dan Excel berhasil diekspor
+      Grafik menggunakan data aktual
+      Kedua role mendapat hak akses yang ditetapkan
+      Kegagalan transaksi tidak mengubah stok sebagian
+      Aplikasi dapat diakses melalui internet setelah deployment
+```
+
+## 2. Alur kerja sistem
+
+```mermaid
+flowchart TD
+    A([Mulai]) --> B[Login]
+    B --> C{Kredensial valid?}
+    C -- Tidak --> D[Tampilkan pesan kesalahan]
+    D --> B
+    C -- Ya --> E[Dashboard]
+    E --> F[Kelola data bahan baku]
+    F --> G{Jenis aktivitas}
+    G -- Bahan masuk --> H[Input transaksi bahan masuk]
+    G -- Bahan keluar --> I[Input transaksi bahan keluar]
+    H --> J[Validasi transaksi]
+    I --> K{Stok mencukupi?}
+    K -- Tidak --> L[Tolak transaksi dan tampilkan pesan]
+    L --> I
+    K -- Ya --> J
+    J --> M{Data valid?}
+    M -- Tidak --> N[Tampilkan kesalahan validasi]
+    N --> G
+    M -- Ya --> O[Simpan transaksi dan perbarui stok secara atomik]
+    O --> P[Perbarui dashboard dan ringkasan]
+    P --> Q[Pilih periode laporan]
+    Q --> R[Tinjau ringkasan dan stok kritis]
+    R --> S[Ekspor PDF atau Excel]
+    S --> T([Selesai])
+```
+
+## 3. ERD database
+
+```mermaid
+erDiagram
+    TB_USER ||--o{ TB_BARANGMASUK : mencatat
+    TB_USER ||--o{ TB_BARANGKELUAR : mencatat
+    TB_BARANG ||--o{ TB_BARANGMASUK : memiliki
+    TB_BARANG ||--o{ TB_BARANGKELUAR : memiliki
+
+    TB_USER {
+        int id_user PK
+        varchar nama_user
+        varchar username UK
+        varchar password_hash
+        varchar level
+    }
+
+    TB_BARANG {
+        int id_barang PK
+        varchar kode_barang UK
+        varchar nama_barang
+        varchar kategori
+        int stok
+        varchar satuan
+        decimal harga
+        int stok_minimum
+    }
+
+    TB_BARANGMASUK {
+        int id_masuk PK
+        date tanggal_masuk
+        int id_barang FK
+        varchar supplier
+        int jumlah
+        decimal harga_beli
+        decimal total
+        varchar keterangan
+        int id_user FK
+    }
+
+    TB_BARANGKELUAR {
+        int id_keluar PK
+        date tanggal_keluar
+        int id_barang FK
+        varchar tujuan
+        int jumlah
+        varchar keterangan
+        int id_user FK
+    }
+```
+
+## 4. Keputusan yang masih perlu dikonfirmasi
+
+- Apakah stok dapat diedit langsung setelah barang dibuat, atau hanya melalui transaksi/penyesuaian stok?
+- Apakah barang dengan riwayat transaksi harus diarsipkan daripada dihapus permanen?
+- Apakah kolom harga pada data bahan baku merupakan harga acuan atau harga beli terakhir?
+- Istilah “barang terlaris” pada versi inventori berarti bahan baku dengan jumlah pengeluaran tertinggi, kecuali data penjualan ditambahkan.
+- Tentukan layanan hosting gratis yang benar-benar mendukung backend, database persisten, HTTPS, dan backup.
+- Tetapkan target performa, kapasitas pengguna, serta jadwal backup berdasarkan kebutuhan perusahaan.

@@ -1,0 +1,38 @@
+# Rules Proyek - Sistem Inventory Cooler City
+
+## 1. Stack Teknologi & Environment
+- **Bahasa**: PHP Native (v8.x+) menggunakan ekstensi `mysqli`.
+- **Database**: MySQL (`db_inventory`).
+- **Frontend**: Bootstrap 5 (via CDN) & Chart.js untuk grafik visual pada dashboard.
+- **Arsitektur Kode**: Pemisahan komponen UI secara modular (`header.php`, `sidebar.php`, `footer.php`, `koneksi.php`).
+
+## 2. Branding & Panduan Visual
+- **Nama Brand**: COOLER CITY - Icecream Tea
+- **Skema Warna**:
+  - Topbar & Primary Button: Cyan (`#00B4D8`)
+  - Sidebar: Dusty Pink / Mauve (`#C4849D`) dengan teks putih
+  - Accent / Cards: Soft Pink (`#F497B8`) & Pastel Yellow
+  - Background Utama: Light Gray (`#F3F4F6`)
+- **Elemen Identitas**: Maskot pinguin biru pada halaman Login dan Header Dashboard.
+
+## 3. Struktur Database
+- **Daftar Tabel**:
+  1. `Tb_barang`: id_barang (PK, AI), kode_barang, nama_barang, stok, satuan, harga, status.
+  2. `tb_barangmasuk`: id_masuk (PK, AI), tanggal_masuk, kode_barang, nama_barang, supplier, jumlah, harga_beli, total, keterangan.
+  3. `tb_barangkeluar`: id_keluar (PK, AI), tanggal_keluar, kode_barang, nama_barang, tujuan, jumlah, keterangan.
+  4. `tb_user`: id_user (PK, AI), nama_user, username, password, level.
+  5. `tb_laporan`: id_laporan (PK, AI), periode, total_masuk, total_keluar, nilai_pembelian, nilai_penjualan, profit.
+- **Aturan Data Master**: Jangan menyertakan data dummy otomatis pada file SQL / script master barang `Tb_barang`.
+
+## 4. Logika Bisnis & Keamanan
+- **Logika Stok Otomatis**:
+  - Transaksi pada `tb_barangmasuk` wajib menambah `stok` di `Tb_barang`.
+  - Transaksi pada `tb_barangkeluar` wajib mengurangi `stok` di `Tb_barang`.
+- **Validasi Stok**: Gagalkan transaksi barang keluar jika `jumlah` yang diinput melebihi sisa `stok` di database, lalu tampilkan alert error.
+- **Keamanan Login**:
+  - Kelola status login menggunakan PHP `session`.
+  - Password akun wajib dienkripsi dengan `password_hash()` dan diverifikasi dengan `password_verify()`.
+
+## 5. Format Penulisan Kode
+- Tuliskan kode secara lengkap, bersih, serta disertai komentar pada bagian logika krusial.
+- Kerjakan pembuatan kode secara bertahap (per modul) sesuai instruksi prompt.
