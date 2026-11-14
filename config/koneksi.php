@@ -80,22 +80,20 @@ if (session_status() === PHP_SESSION_NONE) {
 
 /**
  * Helper: Menghasilkan URL absolut dinamis proyek
- * Cocok untuk lingkungan XAMPP (contoh: http://localhost/KP-COOLER-CITY/...)
+ * Kompatibel secara otomatis untuk XAMPP lokal maupun hosting (InfinityFree, cPanel, VPS)
  */
 if (!function_exists('base_url')) {
     function base_url($path = '') {
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443)) ? "https://" : "http://";
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
         
-        // Dapatkan subfolder direktori proyek secara dinamis
-        $script_name = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
-        $base_folder = '';
+        // Deteksi subfolder relatif terhadap DOCUMENT_ROOT secara presisi
+        $doc_root = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
+        $app_root = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
         
-        if (preg_match('#^(/[^/]+)#', $script_name, $matches)) {
-            // Jika berada di dalam subfolder XAMPP (seperti /KP-COOLER-CITY)
-            if ($matches[1] !== '/index.php' && $matches[1] !== '/login.php') {
-                $base_folder = $matches[1];
-            }
+        $base_folder = '';
+        if (!empty($doc_root) && strpos($app_root, $doc_root) === 0) {
+            $base_folder = substr($app_root, strlen($doc_root));
         }
         
         $base = $protocol . $host . $base_folder;
