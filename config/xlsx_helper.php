@@ -35,6 +35,18 @@ class CoolerCityXlsxWriter {
         $tempFile = tempnam(sys_get_temp_dir(), 'xlsx_');
         $this->saveToFile($tempFile);
 
+        // Matikan error display agar tidak mencemari binary output
+        @ini_set('display_errors', '0');
+        error_reporting(0);
+
+        // Bersihkan SEMUA level output buffer (penting untuk shared hosting InfinityFree
+        // yang sering inject script/tracking ke output PHP)
+        if (ob_get_length() !== false) {
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+        }
+
         header('Content-Description: File Transfer');
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -44,7 +56,7 @@ class CoolerCityXlsxWriter {
         header('Pragma: public');
         header('Content-Length: ' . filesize($tempFile));
 
-        ob_clean();
+        // Pastikan tidak ada output apapun sebelum binary data
         flush();
         readfile($tempFile);
         @unlink($tempFile);

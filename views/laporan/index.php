@@ -233,6 +233,9 @@ krsort($monthly_summary);
 // 3. BACKEND EXPORT: EXCEL XLSX DOWNLOAD HANDLER
 // ==============================================================
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
+    // Tangkap semua output agar tidak ada HTML/script hosting yang tercampur ke binary XLSX
+    ob_start();
+
     $filename = "Laporan_Inventory_CoolerCity_" . date('Ymd_His') . ".xlsx";
     $excel = new CoolerCityXlsxWriter();
 
