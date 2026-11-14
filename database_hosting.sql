@@ -28,8 +28,8 @@ CREATE TABLE `tb_user` (
 
 -- Data Akun Default
 INSERT INTO `tb_user` (`nama_user`, `username`, `password`, `level`) VALUES
-('Owner Cooler City', 'admin', '$2y$10$nqvfQqan7kTBatTTan./5ORcTGImjvOkPQiuChHVAzUYTRfYwoXF.', 'owner'),
-('Staf Gudang Cooler City', 'gudang', '$2y$10$5ZlR17FpC39d1b0d2d790eU6e0gK0s46r42c270d14e1a0640f09e', 'gudang');
+('Owner Cooler City', 'admin', '$2y$10$39Eq8jcNcpqOnpTKGj79I.ZuSo1gkwAa70Bsk2Y2iMszP0eq/Pcn2', 'owner'),
+('Staf Gudang Cooler City', 'gudang', '$2y$10$vkuTfef0iTvnQ86zCirrHuRWav49mYB0cti3gCglyESwEkVvZW87m', 'gudang');
 
 -- --------------------------------------------------------------
 -- 2. Tabel: tb_barang
