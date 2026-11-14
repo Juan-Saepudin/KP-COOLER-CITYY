@@ -4,18 +4,38 @@
  * Aplikasi: Sistem Inventory Cooler City - Icecream & Tea
  */
 
-// Konfigurasi Database XAMPP Standar
-$db_host = '127.0.0.1';
-$db_user = 'root';
-$db_pass = '';
-$db_name = 'db_inventory_coolercity';
+// ==============================================================
+// DETEKSI OTOMATIS: LOKAL (XAMPP) ATAU CLOUD (INFINITYFREE)
+// ==============================================================
+$http_host = $_SERVER['HTTP_HOST'] ?? '';
+$is_local  = (
+    empty($http_host) ||
+    $http_host === 'localhost' ||
+    $http_host === '127.0.0.1' ||
+    strpos($http_host, 'localhost:') === 0 ||
+    strpos($http_host, '127.0.0.1:') === 0
+);
+
+if ($is_local) {
+    // 1. Kredensial untuk XAMPP Lokal di Komputer Anda
+    $db_host = '127.0.0.1';
+    $db_user = 'root';
+    $db_pass = '';
+    $db_name = 'db_inventory_coolercity';
+} else {
+    // 2. Kredensial untuk Hosting InfinityFree (Online)
+    $db_host = 'sql204.infinityfree.com';
+    $db_user = 'if0_43439046';
+    $db_pass = 'Paju12345';
+    $db_name = 'if0_43439046_db_inventory_coolercity';
+}
 
 // Menonaktifkan laporan exception fatal mysqli agar dapat ditangani secara manual
 mysqli_report(MYSQLI_REPORT_OFF);
 
-// Inisialisasi koneksi MySQLi (coba 127.0.0.1 lalu fallback ke localhost jika diperlukan)
+// Inisialisasi koneksi MySQLi
 $koneksi = @new mysqli($db_host, $db_user, $db_pass, $db_name);
-if ($koneksi->connect_error) {
+if ($is_local && $koneksi->connect_error) {
     $db_host = 'localhost';
     $koneksi = @new mysqli($db_host, $db_user, $db_pass, $db_name);
 }

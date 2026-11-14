@@ -115,3 +115,4 @@ CREATE TABLE `tb_laporan` (
   KEY `fk_laporan_user` (`id_user`),
   CONSTRAINT `fk_laporan_user` FOREIGN KEY (`id_user`) REFERENCES `tb_user` (`id_user`) ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
