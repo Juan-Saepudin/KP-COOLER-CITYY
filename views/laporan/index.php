@@ -5,11 +5,12 @@
  * Terintegrasi Penuh dengan MySQL (tb_barang, tb_barangmasuk, tb_barangkeluar)
  * Mendukung Tabbed View (Ringkasan, Barang Terlaris, Stok Kritis),
  * Filter Periode Fleksibel (Bulan Ini, Bulan Lalu, Kuartal, YTD, Custom Range),
- * Ekspor Multi-Format: Excel (CSV UTF-8 Spreadsheet) & PDF (Print-Ready Layout Resmi),
+ * Ekspor Multi-Format: Excel (XLSX Professional Multi-Sheet) & PDF (Print-Ready Layout Resmi),
  * Empty State Penanganan Lengkap & RBAC untuk Staf Gudang dan Owner
  */
 
 require_once __DIR__ . '/../../config/koneksi.php';
+require_once __DIR__ . '/../../config/xlsx_helper.php';
 check_login();
 
 $user_level = $_SESSION['level'] ?? 'owner';
@@ -229,86 +230,218 @@ if ($res_m_out) {
 krsort($monthly_summary);
 
 // ==============================================================
-// 3. BACKEND EXPORT: EXCEL / CSV DOWNLOAD HANDLER
+// 3. BACKEND EXPORT: EXCEL XLSX DOWNLOAD HANDLER
 // ==============================================================
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
-    $filename = "Laporan_Inventory_CoolerCity_" . date('Ymd_His') . ".csv";
+    $filename = "Laporan_Inventory_CoolerCity_" . date('Ymd_His') . ".xlsx";
+    $excel = new CoolerCityXlsxWriter();
 
-    // Set header agar browser mengunduh sebagai file CSV kompatibel Excel
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    header('Pragma: no-cache');
-    header('Expires: 0');
+    // ──────────────────────────────────────────────────
+    // SHEET 1: RINGKASAN LAPORAN
+    // ──────────────────────────────────────────────────
+    $s1_cols = ['A' => 38, 'B' => 22, 'C' => 42];
+    $s1_rows = [];
+    $s1_merges = [];
+    $r = 1;
 
-    // Buka PHP output stream
-    $output = fopen('php://output', 'w');
+    // Header perusahaan
+    $s1_rows[$r] = ['A' => ['val' => 'COOLER CITY - ICE CREAM & TEA', 's' => 1]];
+    $s1_merges[] = "A{$r}:C{$r}"; $r++;
+    $s1_rows[$r] = ['A' => ['val' => 'Outlet: Tanjungpinang', 's' => 2]];
+    $s1_merges[] = "A{$r}:C{$r}"; $r++;
+    $s1_rows[$r] = ['A' => ['val' => 'LAPORAN PERSEDIAAN & AKTIVITAS TRANSAKSI INVENTORY', 's' => 2]];
+    $s1_merges[] = "A{$r}:C{$r}"; $r++;
+    $s1_rows[$r] = ['A' => ['val' => 'Periode: ' . $label_periode . ' (' . $label_rentang . ')', 's' => 2]];
+    $s1_merges[] = "A{$r}:C{$r}"; $r++;
+    $s1_rows[$r] = ['A' => ['val' => 'Rentang: ' . $tgl_mulai . ' s/d ' . $tgl_akhir, 's' => 2]];
+    $s1_merges[] = "A{$r}:C{$r}"; $r++;
+    $s1_rows[$r] = ['A' => ['val' => 'Dicetak: ' . $user_name . ' (' . strtoupper($user_level) . ') — ' . date('d-m-Y H:i:s'), 's' => 2]];
+    $s1_merges[] = "A{$r}:C{$r}"; $r++;
+    $r++; // baris kosong
 
-    // Tulis UTF-8 BOM agar Microsoft Excel membaca karakter dengan tepat tanpa encoding rusak
-    fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+    // Section I: Ringkasan KPI
+    $s1_rows[$r] = ['A' => ['val' => 'I. RINGKASAN METRIK KPI', 's' => 10]];
+    $s1_merges[] = "A{$r}:C{$r}"; $r++;
+    $s1_rows[$r] = [
+        'A' => ['val' => 'Indikator', 's' => 3],
+        'B' => ['val' => 'Nilai / Jumlah', 's' => 3],
+        'C' => ['val' => 'Keterangan', 's' => 3]
+    ]; $r++;
 
-    // Judul & Metadata Laporan
-    fputcsv($output, ['SISTEM INVENTORY COOLER CITY - ICE CREAM & TEA']);
-    fputcsv($output, ['OUTLET: Tanjungpinang']);
-    fputcsv($output, ['LAPORAN: Persediaan & Aktivitas Transaksi Inventory']);
-    fputcsv($output, ['Periode Filter:', $label_periode . ' (' . $label_rentang . ')']);
-    fputcsv($output, ['Rentang Tanggal:', $tgl_mulai . ' s/d ' . $tgl_akhir]);
-    fputcsv($output, ['Dicetak Oleh:', $user_name . ' (' . strtoupper($user_level) . ')']);
-    fputcsv($output, ['Waktu Ekspor:', date('d-m-Y H:i:s')]);
-    fputcsv($output, []); // Baris kosong
+    $kpi_data = [
+        ['Total Barang Masuk (Unit)', $total_masuk_unit, $total_masuk_transaksi . ' transaksi pengiriman'],
+        ['Total Barang Keluar (Unit)', $total_keluar_unit, $total_keluar_transaksi . ' sesi pemakaian operasional'],
+        ['Total Nilai Pembelian (Rp)', $total_nilai_pembelian, 'Akumulasi biaya pengadaan bahan masuk'],
+        ['Total Bahan Baku Kritis (SKU)', $total_kritis, $count_habis . ' Habis, ' . $count_menipis . ' Menipis'],
+    ];
+    $kpi_idx = 0;
+    foreach ($kpi_data as $kd) {
+        $isZebra = ($kpi_idx % 2 === 1);
+        $sl = $isZebra ? 14 : 5;
+        $sn = $isZebra ? 17 : 8;
+        $sr = $isZebra ? 14 : 5;
+        // Untuk nilai pembelian gunakan style currency
+        if ($kpi_idx === 2) {
+            $sn = $isZebra ? 18 : 9;
+        }
+        $s1_rows[$r] = [
+            'A' => ['val' => $kd[0], 's' => $sl],
+            'B' => ['val' => $kd[1], 's' => $sn, 'type' => 'n'],
+            'C' => ['val' => $kd[2], 's' => $sr]
+        ];
+        $r++; $kpi_idx++;
+    }
+    $r++; // baris kosong
 
-    // Bagian 1: Ringkasan Metrik KPI
-    fputcsv($output, ['=== 1. RINGKASAN METRIK KPI ===']);
-    fputcsv($output, ['Indikator', 'Nilai / Jumlah', 'Keterangan']);
-    fputcsv($output, ['Total Barang Masuk (Unit)', $total_masuk_unit, $total_masuk_transaksi . ' transaksi pengiriman']);
-    fputcsv($output, ['Total Barang Keluar (Unit)', $total_keluar_unit, $total_keluar_transaksi . ' sesi pemakaian operasional']);
-    fputcsv($output, ['Total Nilai Pembelian (Rp)', $total_nilai_pembelian, 'Akumulasi biaya pengadaan bahan masuk']);
-    fputcsv($output, ['Total Bahan Baku Kritis (SKU)', $total_kritis, $count_habis . ' Habis, ' . $count_menipis . ' Menipis']);
-    fputcsv($output, []);
+    // Section II: Laporan Bulanan
+    $s1_rows[$r] = ['A' => ['val' => 'II. LAPORAN RINGKASAN BULANAN', 's' => 10]];
+    $s1_merges[] = "A{$r}:C{$r}"; $r++;
 
-    // Bagian 2: Top 10 Bahan Baku Terlaris
-    fputcsv($output, ['=== 2. TOP 10 BAHAN BAKU TERLARIS / PENGELUARAN TERTINGGI ===']);
-    fputcsv($output, ['Ranking', 'Kode Barang', 'Nama Barang', 'Kategori', 'Total Keluar', 'Satuan']);
+    if (!empty($monthly_summary)) {
+        // Ubah header jadi 6 kolom supaya muat — tapi sheet ini 3 kolom. Kita tetap pakai 3 kolom ringkas
+        $s1_rows[$r] = [
+            'A' => ['val' => 'Bulan', 's' => 3],
+            'B' => ['val' => 'Masuk (Unit)', 's' => 3],
+            'C' => ['val' => 'Keluar (Unit)', 's' => 3]
+        ]; $r++;
+        $m_idx = 0;
+        foreach ($monthly_summary as $ym => $mdata) {
+            $parts = explode('-', $ym);
+            $bulanLabel = ($nama_bulan[(int)$parts[1]] ?? $parts[1]) . ' ' . $parts[0];
+            $isZ = ($m_idx % 2 === 1);
+            $s1_rows[$r] = [
+                'A' => ['val' => $bulanLabel, 's' => $isZ ? 14 : 5],
+                'B' => ['val' => $mdata['masuk_unit'] ?? 0, 's' => $isZ ? 17 : 8, 'type' => 'n'],
+                'C' => ['val' => $mdata['keluar_unit'] ?? 0, 's' => $isZ ? 17 : 8, 'type' => 'n']
+            ];
+            $r++; $m_idx++;
+        }
+    } else {
+        $s1_rows[$r] = ['A' => ['val' => 'Belum ada data transaksi pada periode ini', 's' => 6]];
+        $s1_merges[] = "A{$r}:C{$r}"; $r++;
+    }
+
+    $excel->addSheet('Ringkasan Laporan', $s1_cols, $s1_rows, $s1_merges);
+
+    // ──────────────────────────────────────────────────
+    // SHEET 2: TOP 10 BAHAN KELUAR
+    // ──────────────────────────────────────────────────
+    $s2_cols = ['A' => 10, 'B' => 18, 'C' => 32, 'D' => 20, 'E' => 16, 'F' => 12];
+    $s2_rows = [];
+    $s2_merges = [];
+    $r = 1;
+
+    $s2_rows[$r] = ['A' => ['val' => 'TOP 10 BAHAN BAKU KELUAR TERBANYAK', 's' => 1]];
+    $s2_merges[] = "A{$r}:F{$r}"; $r++;
+    $s2_rows[$r] = ['A' => ['val' => 'Periode: ' . $label_periode . ' — Total Disposisi: ' . number_format($total_disposisi_unit) . ' unit', 's' => 2]];
+    $s2_merges[] = "A{$r}:F{$r}"; $r++;
+    $r++;
+
+    $s2_rows[$r] = [
+        'A' => ['val' => 'No', 's' => 3],
+        'B' => ['val' => 'Kode Barang', 's' => 3],
+        'C' => ['val' => 'Nama Barang', 's' => 3],
+        'D' => ['val' => 'Kategori', 's' => 3],
+        'E' => ['val' => 'Total Keluar', 's' => 3],
+        'F' => ['val' => 'Satuan', 's' => 3]
+    ]; $r++;
+
     if (empty($top_barang_list)) {
-        fputcsv($output, ['-', 'Belum ada transaksi pengeluaran pada periode ini', '-', '-', 0, '-']);
+        $s2_rows[$r] = ['A' => ['val' => 'Belum ada transaksi pengeluaran pada periode ini', 's' => 6]];
+        $s2_merges[] = "A{$r}:F{$r}"; $r++;
     } else {
         $rank = 1;
-        foreach ($top_barang_list as $top) {
-            fputcsv($output, [
-                '#' . $rank++,
-                $top['kode_barang'],
-                $top['nama_barang'],
-                $top['kategori'],
-                $top['total_keluar'],
-                $top['satuan']
-            ]);
+        foreach ($top_barang_list as $idx => $top) {
+            $isZ = ($idx % 2 === 1);
+            $s2_rows[$r] = [
+                'A' => ['val' => $rank++, 's' => $isZ ? 15 : 6, 'type' => 'n'],
+                'B' => ['val' => $top['kode_barang'], 's' => $isZ ? 14 : 5],
+                'C' => ['val' => $top['nama_barang'], 's' => $isZ ? 14 : 5],
+                'D' => ['val' => $top['kategori'], 's' => $isZ ? 15 : 6],
+                'E' => ['val' => $top['total_keluar'], 's' => $isZ ? 17 : 8, 'type' => 'n'],
+                'F' => ['val' => $top['satuan'], 's' => $isZ ? 15 : 6]
+            ];
+            $r++;
         }
     }
-    fputcsv($output, []);
 
-    // Bagian 3: Bahan Baku Stok Kritis
-    fputcsv($output, ['=== 3. DAFTAR BAHAN BAKU STOK KRITIS (RESTOK SEGERA) ===']);
-    fputcsv($output, ['Kode Barang', 'Nama Barang', 'Kategori', 'Stok Saat Ini', 'Stok Minimal', 'Satuan', 'Status']);
+    $excel->addSheet('Top 10 Bahan Keluar', $s2_cols, $s2_rows, $s2_merges);
+
+    // ──────────────────────────────────────────────────
+    // SHEET 3: STOK KRITIS
+    // ──────────────────────────────────────────────────
+    $s3_cols = ['A' => 18, 'B' => 32, 'C' => 20, 'D' => 14, 'E' => 14, 'F' => 12, 'G' => 14];
+    $s3_rows = [];
+    $s3_merges = [];
+    $r = 1;
+
+    $s3_rows[$r] = ['A' => ['val' => 'DAFTAR BAHAN BAKU STOK KRITIS', 's' => 1]];
+    $s3_merges[] = "A{$r}:G{$r}"; $r++;
+    $s3_rows[$r] = ['A' => ['val' => 'Bahan yang perlu di-restok segera — ' . $count_habis . ' Habis, ' . $count_menipis . ' Menipis', 's' => 2]];
+    $s3_merges[] = "A{$r}:G{$r}"; $r++;
+    $r++;
+
+    $s3_rows[$r] = [
+        'A' => ['val' => 'Kode Barang', 's' => 4],
+        'B' => ['val' => 'Nama Barang', 's' => 4],
+        'C' => ['val' => 'Kategori', 's' => 4],
+        'D' => ['val' => 'Stok', 's' => 4],
+        'E' => ['val' => 'Stok Min.', 's' => 4],
+        'F' => ['val' => 'Satuan', 's' => 4],
+        'G' => ['val' => 'Status', 's' => 4]
+    ]; $r++;
+
     if (empty($stok_kritis_list)) {
-        fputcsv($output, ['-', 'Semua stok dalam kondisi aman (tidak ada bahan baku berstatus kritis)', '-', 0, 0, '-', 'Aman']);
+        $s3_rows[$r] = ['A' => ['val' => 'Semua stok dalam kondisi aman', 's' => 6]];
+        $s3_merges[] = "A{$r}:G{$r}"; $r++;
     } else {
-        foreach ($stok_kritis_list as $kritis) {
-            fputcsv($output, [
-                $kritis['kode_barang'],
-                $kritis['nama_barang'],
-                $kritis['kategori'],
-                $kritis['stok'],
-                $kritis['stok_minimum'],
-                $kritis['satuan'],
-                $kritis['status']
-            ]);
+        foreach ($stok_kritis_list as $idx => $kritis) {
+            $isZ = ($idx % 2 === 1);
+            $statusStyle = 13; // Aman
+            if ($kritis['status'] === 'Habis') $statusStyle = 11;
+            elseif ($kritis['status'] === 'Menipis') $statusStyle = 12;
+
+            $s3_rows[$r] = [
+                'A' => ['val' => $kritis['kode_barang'], 's' => $isZ ? 14 : 5],
+                'B' => ['val' => $kritis['nama_barang'], 's' => $isZ ? 14 : 5],
+                'C' => ['val' => $kritis['kategori'], 's' => $isZ ? 15 : 6],
+                'D' => ['val' => $kritis['stok'], 's' => $isZ ? 17 : 8, 'type' => 'n'],
+                'E' => ['val' => $kritis['stok_minimum'], 's' => $isZ ? 17 : 8, 'type' => 'n'],
+                'F' => ['val' => $kritis['satuan'], 's' => $isZ ? 15 : 6],
+                'G' => ['val' => $kritis['status'], 's' => $statusStyle]
+            ];
+            $r++;
         }
     }
-    fputcsv($output, []);
 
-    // Bagian 4: Rincian Riwayat Transaksi Bahan Masuk Periode Ini
-    fputcsv($output, ['=== 4. RINCIAN TRANSAKSI BAHAN MASUK PERIODE INI ===']);
-    fputcsv($output, ['ID Masuk', 'Tanggal', 'Kode Barang', 'Nama Barang', 'Supplier', 'Jumlah', 'Harga Beli (Rp)', 'Total (Rp)', 'Keterangan']);
-    
+    $excel->addSheet('Stok Kritis', $s3_cols, $s3_rows, $s3_merges);
+
+    // ──────────────────────────────────────────────────
+    // SHEET 4: RINCIAN BAHAN MASUK
+    // ──────────────────────────────────────────────────
+    $s4_cols = ['A' => 16, 'B' => 14, 'C' => 16, 'D' => 30, 'E' => 24, 'F' => 12, 'G' => 18, 'H' => 20, 'I' => 24];
+    $s4_rows = [];
+    $s4_merges = [];
+    $r = 1;
+
+    $s4_rows[$r] = ['A' => ['val' => 'RINCIAN TRANSAKSI BAHAN MASUK', 's' => 1]];
+    $s4_merges[] = "A{$r}:I{$r}"; $r++;
+    $s4_rows[$r] = ['A' => ['val' => 'Periode: ' . $tgl_mulai . ' s/d ' . $tgl_akhir, 's' => 2]];
+    $s4_merges[] = "A{$r}:I{$r}"; $r++;
+    $r++;
+
+    $s4_rows[$r] = [
+        'A' => ['val' => 'ID Masuk', 's' => 3],
+        'B' => ['val' => 'Tanggal', 's' => 3],
+        'C' => ['val' => 'Kode Barang', 's' => 3],
+        'D' => ['val' => 'Nama Barang', 's' => 3],
+        'E' => ['val' => 'Supplier', 's' => 3],
+        'F' => ['val' => 'Jumlah', 's' => 3],
+        'G' => ['val' => 'Harga Beli (Rp)', 's' => 3],
+        'H' => ['val' => 'Total (Rp)', 's' => 3],
+        'I' => ['val' => 'Keterangan', 's' => 3]
+    ]; $r++;
+
     $stmt_detail_in = $koneksi->prepare("
         SELECT id_masuk, tanggal_masuk, kode_barang, nama_barang, supplier, jumlah, harga_beli, total, keterangan
         FROM tb_barangmasuk
@@ -318,30 +451,65 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $stmt_detail_in->bind_param("ss", $tgl_mulai, $tgl_akhir);
     $stmt_detail_in->execute();
     $res_detail_in = $stmt_detail_in->get_result();
+
     if ($res_detail_in->num_rows === 0) {
-        fputcsv($output, ['-', '-', 'Belum ada transaksi masuk pada periode ini', '-', '-', 0, 0, 0, '-']);
+        $s4_rows[$r] = ['A' => ['val' => 'Belum ada transaksi bahan masuk pada periode ini', 's' => 6]];
+        $s4_merges[] = "A{$r}:I{$r}"; $r++;
     } else {
-        while ($r = $res_detail_in->fetch_assoc()) {
-            fputcsv($output, [
-                'BM-' . str_pad($r['id_masuk'], 5, '0', STR_PAD_LEFT),
-                $r['tanggal_masuk'],
-                $r['kode_barang'],
-                $r['nama_barang'],
-                $r['supplier'],
-                $r['jumlah'],
-                $r['harga_beli'],
-                $r['total'],
-                $r['keterangan'] ?? '-'
-            ]);
+        $grand_total_masuk = 0;
+        $idx = 0;
+        while ($d = $res_detail_in->fetch_assoc()) {
+            $isZ = ($idx % 2 === 1);
+            $s4_rows[$r] = [
+                'A' => ['val' => 'BM-' . str_pad($d['id_masuk'], 5, '0', STR_PAD_LEFT), 's' => $isZ ? 15 : 6],
+                'B' => ['val' => $d['tanggal_masuk'], 's' => $isZ ? 15 : 6],
+                'C' => ['val' => $d['kode_barang'], 's' => $isZ ? 14 : 5],
+                'D' => ['val' => $d['nama_barang'], 's' => $isZ ? 14 : 5],
+                'E' => ['val' => $d['supplier'], 's' => $isZ ? 14 : 5],
+                'F' => ['val' => (int)$d['jumlah'], 's' => $isZ ? 17 : 8, 'type' => 'n'],
+                'G' => ['val' => (int)$d['harga_beli'], 's' => $isZ ? 18 : 9, 'type' => 'n'],
+                'H' => ['val' => (int)$d['total'], 's' => $isZ ? 18 : 9, 'type' => 'n'],
+                'I' => ['val' => $d['keterangan'] ?? '-', 's' => $isZ ? 14 : 5]
+            ];
+            $grand_total_masuk += (int)$d['total'];
+            $r++; $idx++;
         }
+        // Baris total
+        $s4_rows[$r] = [
+            'A' => ['val' => 'TOTAL', 's' => 20],
+            'H' => ['val' => $grand_total_masuk, 's' => 19, 'type' => 'n']
+        ];
+        $s4_merges[] = "A{$r}:G{$r}";
+        $r++;
     }
     $stmt_detail_in->close();
-    fputcsv($output, []);
 
-    // Bagian 5: Rincian Riwayat Transaksi Bahan Keluar Periode Ini
-    fputcsv($output, ['=== 5. RINCIAN TRANSAKSI BAHAN KELUAR PERIODE INI ===']);
-    fputcsv($output, ['ID Keluar', 'Tanggal', 'Kode Barang', 'Nama Barang', 'Tujuan', 'Jumlah', 'Keterangan']);
-    
+    $excel->addSheet('Rincian Bahan Masuk', $s4_cols, $s4_rows, $s4_merges);
+
+    // ──────────────────────────────────────────────────
+    // SHEET 5: RINCIAN BAHAN KELUAR
+    // ──────────────────────────────────────────────────
+    $s5_cols = ['A' => 16, 'B' => 14, 'C' => 16, 'D' => 30, 'E' => 24, 'F' => 12, 'G' => 28];
+    $s5_rows = [];
+    $s5_merges = [];
+    $r = 1;
+
+    $s5_rows[$r] = ['A' => ['val' => 'RINCIAN TRANSAKSI BAHAN KELUAR', 's' => 1]];
+    $s5_merges[] = "A{$r}:G{$r}"; $r++;
+    $s5_rows[$r] = ['A' => ['val' => 'Periode: ' . $tgl_mulai . ' s/d ' . $tgl_akhir, 's' => 2]];
+    $s5_merges[] = "A{$r}:G{$r}"; $r++;
+    $r++;
+
+    $s5_rows[$r] = [
+        'A' => ['val' => 'ID Keluar', 's' => 4],
+        'B' => ['val' => 'Tanggal', 's' => 4],
+        'C' => ['val' => 'Kode Barang', 's' => 4],
+        'D' => ['val' => 'Nama Barang', 's' => 4],
+        'E' => ['val' => 'Tujuan', 's' => 4],
+        'F' => ['val' => 'Jumlah', 's' => 4],
+        'G' => ['val' => 'Keterangan', 's' => 4]
+    ]; $r++;
+
     $stmt_detail_out = $koneksi->prepare("
         SELECT id_keluar, tanggal_keluar, kode_barang, nama_barang, tujuan, jumlah, keterangan
         FROM tb_barangkeluar
@@ -351,25 +519,42 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $stmt_detail_out->bind_param("ss", $tgl_mulai, $tgl_akhir);
     $stmt_detail_out->execute();
     $res_detail_out = $stmt_detail_out->get_result();
+
     if ($res_detail_out->num_rows === 0) {
-        fputcsv($output, ['-', '-', 'Belum ada transaksi keluar pada periode ini', '-', '-', 0, '-']);
+        $s5_rows[$r] = ['A' => ['val' => 'Belum ada transaksi bahan keluar pada periode ini', 's' => 6]];
+        $s5_merges[] = "A{$r}:G{$r}"; $r++;
     } else {
-        while ($r = $res_detail_out->fetch_assoc()) {
-            fputcsv($output, [
-                'BK-' . str_pad($r['id_keluar'], 5, '0', STR_PAD_LEFT),
-                $r['tanggal_keluar'],
-                $r['kode_barang'],
-                $r['nama_barang'],
-                $r['tujuan'],
-                $r['jumlah'],
-                $r['keterangan'] ?? '-'
-            ]);
+        $grand_total_keluar_unit = 0;
+        $idx = 0;
+        while ($d = $res_detail_out->fetch_assoc()) {
+            $isZ = ($idx % 2 === 1);
+            $s5_rows[$r] = [
+                'A' => ['val' => 'BK-' . str_pad($d['id_keluar'], 5, '0', STR_PAD_LEFT), 's' => $isZ ? 15 : 6],
+                'B' => ['val' => $d['tanggal_keluar'], 's' => $isZ ? 15 : 6],
+                'C' => ['val' => $d['kode_barang'], 's' => $isZ ? 14 : 5],
+                'D' => ['val' => $d['nama_barang'], 's' => $isZ ? 14 : 5],
+                'E' => ['val' => $d['tujuan'], 's' => $isZ ? 14 : 5],
+                'F' => ['val' => (int)$d['jumlah'], 's' => $isZ ? 17 : 8, 'type' => 'n'],
+                'G' => ['val' => $d['keterangan'] ?? '-', 's' => $isZ ? 14 : 5]
+            ];
+            $grand_total_keluar_unit += (int)$d['jumlah'];
+            $r++; $idx++;
         }
+        // Baris total
+        $s5_rows[$r] = [
+            'A' => ['val' => 'TOTAL UNIT KELUAR', 's' => 20],
+            'F' => ['val' => $grand_total_keluar_unit, 's' => 19, 'type' => 'n']
+        ];
+        $s5_merges[] = "A{$r}:E{$r}";
+        $r++;
     }
     $stmt_detail_out->close();
 
-    fclose($output);
-    exit;
+    $excel->addSheet('Rincian Bahan Keluar', $s5_cols, $s5_rows, $s5_merges);
+
+    // Download XLSX
+    $excel->download($filename);
+    // exit dipanggil di dalam download()
 }
 
 // ==============================================================
